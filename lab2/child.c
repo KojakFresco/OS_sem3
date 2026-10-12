@@ -29,6 +29,10 @@ int main(const int argc, char* argv[]) {
             const long k = strtol(token, NULL, 10);
             if (k == 0) {
                 fprintf(stderr, "Division by zero is not allowed\n");
+
+                printf("ERR_DIV_ZERO\n");
+                fflush(stdout);
+
                 close(fd);
                 exit(-1);
             }
