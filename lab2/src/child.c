@@ -18,17 +18,32 @@ int main(const int argc, char* argv[]) {
         return -1;
     }
 
+    char* endptr;
     while (fgets(buff, sizeof(buff), stdin) != NULL) {
         const char* token = strtok(buff, " \n");
         if (token == NULL)
             continue;
-        long n = strtol(token, NULL, 10);
+
+        long n = strtol(token, &endptr, 10);
+        if (endptr == token) {
+            fprintf(stderr, "Invalid input was provided\n");
+
+            printf("ERR_DIV_ZERO\n");
+            fflush(stdout);
+
+            close(fd);
+            exit(-1);
+        }
 
         token = strtok(NULL, " \n");
         while (token != NULL) {
-            const long k = strtol(token, NULL, 10);
+            const long k = strtol(token, &endptr, 10);
             if (k == 0) {
-                fprintf(stderr, "Division by zero is not allowed\n");
+                if (endptr == token) {
+                    fprintf(stderr, "Invalid input was provided\n");
+                } else {
+                    fprintf(stderr, "Division by zero is not allowed\n");
+                }
 
                 printf("ERR_DIV_ZERO\n");
                 fflush(stdout);
