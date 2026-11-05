@@ -16,7 +16,7 @@ target_link_libraries(PMergeSort PUBLIC Threads::Threads)
 
 target_link_libraries(main PRIVATE PMergeSort)
 
-add_executable(benchmark benchmark.c)
+add_executable(benchmark benchmark/benchmark.c)
 target_link_libraries(benchmark PRIVATE PMergeSort)
 
 enable_testing()

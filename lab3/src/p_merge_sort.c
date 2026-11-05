@@ -6,7 +6,6 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) > (b) ? (b) : (a))
 
 static void* allocate(const size_t size) {
@@ -121,7 +120,7 @@ int* p_merge_sort(const int* arr, const size_t size, const size_t th_count) {
         batches[i].start = copy + batch_size * i;
         batches[i].size = min(batch_size, size - batch_size * i);
         if (pthread_create(&threads[i], NULL, thread_func, &batches[i]) != 0) {
-            perror("Не удалось создать поток");
+            perror("Thread creation failed");
             free(threads);
             free(batches);
             free(copy);

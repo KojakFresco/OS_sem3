@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
-#include "p_merge_sort.h"
+#include "../p_merge_sort.h"
 
 #include <inttypes.h>
 #include <stdint.h>
