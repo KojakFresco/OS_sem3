@@ -1,11 +1,6 @@
-cmake_minimum_required(VERSION 3.28.3)
-project(lab3 C)
-
-set(CMAKE_C_STANDARD 11)
-
 find_package(Threads REQUIRED)
 
-add_executable(main main.c)
+add_executable(lab3 main.c)
 
 add_library(PMergeSort p_merge_sort.c)
 target_sources(PMergeSort
@@ -14,7 +9,7 @@ target_sources(PMergeSort
         FILES p_merge_sort.h)
 target_link_libraries(PMergeSort PUBLIC Threads::Threads)
 
-target_link_libraries(main PRIVATE PMergeSort)
+target_link_libraries(lab3 PRIVATE PMergeSort)
 
 add_executable(benchmark benchmark/benchmark.c)
 target_link_libraries(benchmark PRIVATE PMergeSort)
