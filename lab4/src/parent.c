@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <signal.h>
-#include <bits/signum-arch.h>
+#include <unistd.h>
 
 #include "shared.h"
 
@@ -21,7 +21,11 @@ static void sig_handler(int sig) {
 }
 
 int notify_child(const pid_t child_pid, const sigset_t mask, StreamBuffer* buffer) {
-    kill(child_pid, SIGUSR1);
+    if (kill(child_pid, SIGUSR1) == -1) {
+        perror("kill");
+        return EXIT_FAILURE;
+    }
+
     while (sig_received == 0) {
         sigsuspend(&mask);
     }
@@ -38,10 +42,12 @@ int notify_child(const pid_t child_pid, const sigset_t mask, StreamBuffer* buffe
 
 int run_parent(void* mapping, const size_t capacity, const pid_t child_pid, const sigset_t mask) {
     StreamBuffer* buffer = mapping;
-    const struct sigaction action = {.sa_handler = sig_handler};
-    sigaction(SIGUSR2, &action, NULL);
 
-    buffer->error = NO_ERROR;
+    const struct sigaction action = {.sa_handler = sig_handler};
+    if (sigaction(SIGUSR2, &action, NULL) == -1) {
+        perror("sigaction");
+        return EXIT_FAILURE;
+    }
 
     char* line = NULL;
     size_t len = 0;
@@ -52,18 +58,23 @@ int run_parent(void* mapping, const size_t capacity, const pid_t child_pid, cons
 
         if (nread == -1) {
             buffer->is_eof = true;
-            kill(child_pid, SIGUSR1);
+            if (kill(child_pid, SIGUSR1) == -1) {
+                perror("kill");
+                free(line);
+                return EXIT_FAILURE;
+            }
             break;
         }
 
-        if (line[0] == '\n' || line[0] == '\r') {
+        char* endptr = line;
+
+        while (isspace((unsigned char)*endptr)) {
+            ++endptr;
+        }
+        if (*endptr == '\0') {
             continue;
         }
 
-        if (nread == 1 && line[0] == '\n') continue;
-        if (line[nread - 1] == '\n') line[nread - 1] = '\0';
-
-        char* endptr = line;
         char* prev_ptr = endptr;
         while (*endptr != '\0') {
             errno = 0;
@@ -79,30 +90,31 @@ int run_parent(void* mapping, const size_t capacity, const pid_t child_pid, cons
                 goto exit_on_err;
             }
 
-            while (isspace(*endptr)) ++endptr;
+            while (isspace((unsigned char)*endptr)) ++endptr;
 
             prev_ptr = endptr;
 
             buffer->data[buffer->data_size] = (int) val;
             buffer->data_size += 1;
             if (buffer->data_size >= capacity || endptr[0] == '\0') {
+                if (endptr[0] == '\0') buffer->flush = true;
                 if (notify_child(child_pid, mask, buffer) == EXIT_FAILURE) {
                     free(line);
                     return EXIT_FAILURE;
                 }
             }
         }
-
-        buffer->flush = true;
     }
     free(line);
 
-    printf("[Parent] Work is over without exceptions\n");
+    printf("[Parent PID: %d] Work is over without exceptions\n", getpid());
     return EXIT_SUCCESS;
 
 exit_on_err:
     free(line);
     buffer->error = ERR_PARENT;
-    kill(child_pid, SIGUSR1);
+    if (kill(child_pid, SIGUSR1) == -1) {
+        perror("kill");
+    }
     return EXIT_FAILURE;
 }

@@ -17,14 +17,23 @@ static void sig_handler(int sig) {
 
 int run_child(void* mapping, const pid_t parent_pid, const sigset_t mask, const char* out_path) {
     StreamBuffer* buff = mapping;
+
     const struct sigaction action = {.sa_handler = sig_handler};
-    sigaction(SIGUSR1, &action, NULL);
+    if (sigaction(SIGUSR1, &action, NULL) == -1) {
+        perror("sigaction");
+        return EXIT_FAILURE;
+    }
 
     FILE* out = fopen(out_path, "w");
     if (out == NULL) {
         perror("fopen");
         buff->error = ERR_CHILD;
-        kill(parent_pid, SIGUSR2);
+
+        if (kill(parent_pid, SIGUSR2) == -1) {
+            perror("kill");
+            return EXIT_FAILURE;
+        }
+
         return EXIT_FAILURE;
     }
 
@@ -37,16 +46,18 @@ int run_child(void* mapping, const pid_t parent_pid, const sigset_t mask, const 
         sig_received = 0;
 
         if (buff->error == ERR_PARENT) {
-            fclose(out);
+            if (fclose(out) == EOF) {
+                perror("fclose");
+            }
             return EXIT_FAILURE;
         }
 
-        if (buff->flush) {
-            is_first = 1;
-            fprintf(out, "%d\n", res);
-        }
         if (buff->is_eof) {
-            printf("[Child] Work is over without exceptions\n");
+            printf("[Child PID: %d] Work is over without exceptions\n", getpid());
+            if (fclose(out) == EOF) {
+                perror("fclose");
+                return EXIT_FAILURE;
+            }
             break;
         }
 
@@ -57,16 +68,33 @@ int run_child(void* mapping, const pid_t parent_pid, const sigset_t mask, const 
             } else {
                 if (buff->data[i] == 0) {
                     fprintf(stderr, "Error: Can not divide by zero\n");
-                    fclose(out);
+                    if (fclose(out) == EOF) {
+                        perror("fclose");
+                    }
                     buff->error = ERR_CHILD;
-                    kill(parent_pid, SIGUSR2);
+
+                    if (kill(parent_pid, SIGUSR2) == -1) {
+                        perror("kill");
+                    }
+
                     return EXIT_FAILURE;
                 }
                 res /= buff->data[i];
             }
         }
 
-        kill(parent_pid, SIGUSR2);
+        if (buff->flush) {
+            is_first = 1;
+            fprintf(out, "%d\n", res);
+        }
+
+        if (kill(parent_pid, SIGUSR2) == -1) {
+            perror("kill");
+            if (fclose(out) == EOF) {
+                perror("fclose");
+            }
+            return EXIT_FAILURE;
+        }
     }
     return EXIT_SUCCESS;
 }
